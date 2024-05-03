@@ -36,15 +36,17 @@ const ccExeFlags = &.{
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const static = b.option(bool, "static", "Compile statically the library and executable") orelse false;
 
-    const bzip2_so = b.addSharedLibrary(.{
+    const options = .{
         .name = "bz2",
         .target = target,
         .optimize = optimize,
         .version = lib_version,
-    });
+    };
 
-    const bzip2_h = b.addConfigHeader(
+    const bzip2_lib = if (static) b.addStaticLibrary(options) else b.addSharedLibrary(options);
+    const bzip2_header = b.addConfigHeader(
         .{
             .style = .blank,
             .include_path = "bz_version.h",
@@ -53,8 +55,7 @@ pub fn build(b: *std.Build) void {
             .BZ_VERSION = version,
         },
     );
-    bzip2_so.addConfigHeader(bzip2_h);
-    bzip2_so.addCSourceFiles(.{
+    bzip2_lib.addCSourceFiles(.{
         .files = &.{
             "blocksort.c",
             "bzlib.c",
@@ -66,7 +67,9 @@ pub fn build(b: *std.Build) void {
         },
         .flags = ccFlags,
     });
-    bzip2_so.linkLibC();
+    bzip2_lib.addConfigHeader(bzip2_header);
+    bzip2_lib.linkLibC();
+
     const bzip2_exe = b.addExecutable(.{
         .name = "bzip2",
         .target = target,
@@ -76,8 +79,8 @@ pub fn build(b: *std.Build) void {
         .file = .{ .path = "bzip2.c" },
         .flags = ccExeFlags,
     });
-    bzip2_exe.linkLibrary(bzip2_so);
+    bzip2_exe.linkLibrary(bzip2_lib);
 
     b.installArtifact(bzip2_exe);
-    b.installArtifact(bzip2_so);
+    b.installArtifact(bzip2_lib);
 }
