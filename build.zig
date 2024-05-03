@@ -28,10 +28,16 @@ const ccFlags = &.{
     "-Wredundant-decls",   "-Wno-format-nonliteral",
 };
 
+// retrieved from https://github.com/Wow-modding-Linux/bzip2/blob/66c46b8c9436613fd81bc5d03f63a61933a4dcc3/CMakeLists.txt#L392
+const ccExeFlags = &.{
+    "-DBZ_LCCWIN32=0", "-DBZ_UNIX",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const bzip2 = b.addSharedLibrary(.{
+
+    const bzip2_so = b.addSharedLibrary(.{
         .name = "bz2",
         .target = target,
         .optimize = optimize,
@@ -47,8 +53,8 @@ pub fn build(b: *std.Build) void {
             .BZ_VERSION = version,
         },
     );
-    bzip2.addConfigHeader(bzip2_h);
-    bzip2.addCSourceFiles(.{
+    bzip2_so.addConfigHeader(bzip2_h);
+    bzip2_so.addCSourceFiles(.{
         .files = &.{
             "blocksort.c",
             "bzlib.c",
@@ -60,6 +66,18 @@ pub fn build(b: *std.Build) void {
         },
         .flags = ccFlags,
     });
-    bzip2.linkLibC();
-    b.installArtifact(bzip2);
+    bzip2_so.linkLibC();
+    const bzip2_exe = b.addExecutable(.{
+        .name = "bzip2",
+        .target = target,
+        .optimize = optimize,
+    });
+    bzip2_exe.addCSourceFile(.{
+        .file = .{ .path = "bzip2.c" },
+        .flags = ccExeFlags,
+    });
+    bzip2_exe.linkLibrary(bzip2_so);
+
+    b.installArtifact(bzip2_exe);
+    b.installArtifact(bzip2_so);
 }
